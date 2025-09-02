@@ -16,6 +16,18 @@ const teamsWebhookUrl =
 export const handler = async (event) => {
   console.log("Received event:", JSON.stringify(event, null, 2));
 
+  if (event.detail.lastStatus !== "DEACTIVATING") {
+    console.log(
+      `Skipping notification. Task status is '${event.detail.lastStatus}', not 'DEACTIVATING'.`
+    );
+    return {
+      statusCode: 200,
+      body: JSON.stringify({
+        message: "Notification not required for this event type.",
+      }),
+    };
+  }
+
   if (!isValidWebhookUrl(teamsWebhookUrl)) {
     const errorMessage = "Invalid or missing Microsoft Teams Webhook URL.";
     console.error(errorMessage);
@@ -63,30 +75,29 @@ function createAdaptiveCard(event) {
     clusterArn,
     containers,
     group,
-    stoppedReason
+    stoppedReason,
   } = detail;
 
   const taskDefinitionName = taskDefinitionArn.split("/").pop();
   const clusterName = clusterArn.split("/").pop();
   const containerReason = stoppedReason ?? "N/A";
   const eventDate = new Date(time);
-  const istTimeString = eventDate.toLocaleString('en-IN', {
-    timeZone: 'Asia/Kolkata',
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
+  const istTimeString = eventDate.toLocaleString("en-IN", {
+    timeZone: "Asia/Kolkata",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
     hour12: true,
   });
   const serviceName = group.split(":")[1];
 
   // Determine color and status message based on the event
-  const { color, statusMessage, emoji } = getStatusDetails(
-    lastStatus,
-    desiredStatus
-  );
+  const color = "FF0000"; // Red
+  const statusMessage = `${lastStatus}`;
+  const emoji = "❌";
 
   const card = {
     "@type": "MessageCard",
@@ -125,29 +136,6 @@ function createAdaptiveCard(event) {
   };
 
   return card;
-}
-
-// Determines the message based on task status.
-function getStatusDetails(lastStatus, desiredStatus) {
-  let color = "0078D4"; // Blue
-  let statusMessage = `${lastStatus}`;
-  let emoji = "ℹ️";
-
-  if (lastStatus === "STOPPED") {
-    color = "FF0000"; // Red
-    statusMessage = "Task Stopped";
-    emoji = "❌";
-  } else if (lastStatus === "RUNNING" && desiredStatus === "RUNNING") {
-    color = "28A745"; // Green
-    statusMessage = "Task is Running";
-    emoji = "✅";
-  } else if (lastStatus === "PROVISIONING" || lastStatus === "PENDING") {
-    color = "FFC107"; // Yellow
-    statusMessage = "Task is Starting";
-    emoji = "⏳";
-  }
-
-  return { color, statusMessage, emoji };
 }
 
 // Validates if the provided string is a valid URL.
